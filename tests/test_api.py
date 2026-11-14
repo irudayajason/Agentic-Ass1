@@ -54,8 +54,9 @@ def test_bad_session_id_rejected(client):
 def test_upload_rejects_bad_files(client):
     r = client.post("/api/upload", headers=H, files={"file": ("x.xlsx", b"abc", "application/octet-stream")})
     assert r.status_code == 422
+    # unknown layout: needs the LLM; with no key / no quota it must be a clear 422, never a 500
     r = client.post("/api/upload", headers=H, files={"file": ("x.csv", b"just,some\nrandom,text\n", "text/csv")})
-    assert r.status_code in (422, 500) or r.json()
+    assert r.status_code == 422 and r.json()["detail"]
 
 
 def test_upload_csv_and_dashboard(client):

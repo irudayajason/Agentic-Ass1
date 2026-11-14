@@ -162,10 +162,17 @@ def detect_layout_llm(rows: list[list[str]], mapper: Callable[[str], ColumnMappi
     """Ask the LLM (few-shot parser_mapping prompt) which column is which. Validates the answer."""
     sample = "\n".join(f"line {i}: {','.join(r)}" for i, r in enumerate(rows[:n_lines]))
     if mapper is None:
-        from spendsense.chains import structured_chain
-        chain = structured_chain("parser_mapping", ColumnMapping)
-        mapper = lambda s: chain.invoke({"sample_lines": s})  # noqa: E731
-    m = mapper(sample)
+        def mapper(s: str) -> ColumnMapping:
+            from spendsense.chains import structured_chain
+            return structured_chain("parser_mapping", ColumnMapping).invoke({"sample_lines": s})
+    try:
+        m = mapper(sample)          # building the chain is inside too: a missing key fails here
+    except ParseError:
+        raise
+    except Exception as exc:  # noqa: BLE001 - no key, quota used up, network down...
+        raise ParseError("This statement layout isn't one the parser knows, and the LLM needed to work it out "
+                         f"is unavailable ({type(exc).__name__}: {str(exc)[:120]}). Check GROQ_API_KEY in .env, "
+                         "or export the statement as CSV with Date / Description / Debit / Credit columns.") from exc
     if not 0 <= m.header_row_index < len(rows):
         raise ParseError("The statement layout could not be recognised (bad header row).")
     header = rows[m.header_row_index]
