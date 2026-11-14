@@ -1,0 +1,228 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>SpendSense</title>
+  <meta name="description" content="SpendSense: an agentic personal-finance assistant that turns bank and UPI statements into insights.">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Ccircle cx='32' cy='32' r='30' fill='%233A2218'/%3E%3Ccircle cx='32' cy='32' r='14' fill='%23FBE38E'/%3E%3Ccircle cx='44' cy='20' r='7' fill='%232B5BFF'/%3E%3C/svg%3E">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/static/styles.css">
+</head>
+<body>
+  <!-- drifting background bubbles -->
+  <div class="bg-bubbles" aria-hidden="true"><span></span><span></span><span></span><span></span><span></span></div>
+
+  <header class="topbar">
+    <a class="brand" href="#upload" data-nav="upload" aria-label="SpendSense home">
+      <span class="brand-mark" aria-hidden="true"><i></i><i></i></span>
+      <span class="brand-name">Spend<b>Sense</b></span>
+    </a>
+
+    <nav class="bubbles" id="nav" aria-label="Main">
+      <span class="bubble-indicator" aria-hidden="true"></span>
+      <button class="bubble" data-tab="upload"><svg><use href="#i-upload"/></svg><span>Upload</span></button>
+      <button class="bubble" data-tab="dashboard"><svg><use href="#i-chart"/></svg><span>Dashboard</span></button>
+      <button class="bubble" data-tab="chat"><svg><use href="#i-chat"/></svg><span>Ask</span></button>
+      <button class="bubble" data-tab="transactions"><svg><use href="#i-list"/></svg><span>Transactions</span></button>
+      <button class="bubble" data-tab="insights"><svg><use href="#i-bulb"/></svg><span>Insights</span></button>
+      <button class="bubble" data-tab="hood"><svg><use href="#i-gear"/></svg><span>Under the hood</span></button>
+    </nav>
+
+    <div class="status" id="status" title="Connection status">
+      <span class="status-dot"></span><span class="status-text">Connecting…</span>
+    </div>
+  </header>
+
+  <main id="main">
+    <!-- ============================================================ UPLOAD -->
+    <section class="view" id="view-upload" data-view="upload">
+      <div class="hero reveal">
+        <p class="eyebrow">Statement → insights, with a team of AI agents</p>
+        <h1>Where did your <span class="hl">money</span> go?</h1>
+        <p class="lede">Drop a bank or UPI statement. Four agents parse it, categorise every transaction,
+          crunch the numbers with real tools, and tell you where you can save.</p>
+      </div>
+
+      <div class="upload-grid">
+        <label class="dropzone card reveal" id="dropzone" tabindex="0">
+          <input type="file" id="file-input" accept=".csv,.pdf,.txt" hidden>
+          <span class="drop-orb" aria-hidden="true"><svg><use href="#i-upload"/></svg></span>
+          <strong>Drop your statement here</strong>
+          <span class="muted">CSV or PDF, up to 10 MB · or click to choose a file</span>
+        </label>
+
+        <div class="card samples reveal">
+          <h3>No statement handy?</h3>
+          <p class="muted">Try synthetic demo data (4 months, fictional person in Chennai).</p>
+          <div class="sample-list">
+            <button class="btn btn-primary" data-sample="bank_statement.csv">Load sample statement</button>
+            <button class="chip" data-sample="upi_statement.csv">UPI app export</button>
+            <button class="chip" data-sample="bank_statement.pdf">PDF statement</button>
+            <button class="chip" data-sample="unusual_layout_oct.csv">Unusual layout (LLM parser)</button>
+          </div>
+        </div>
+      </div>
+
+      <ol class="pipeline card reveal" id="pipeline" aria-live="polite">
+        <li data-step="parse"><span class="pip"></span><div><b>Parser Agent</b><small>Reads columns, dates, amounts</small></div></li>
+        <li data-step="categorize"><span class="pip"></span><div><b>Categorizer Agent</b><small>Rules → LLM + ChromaDB examples → self-check</small></div></li>
+        <li data-step="index"><span class="pip"></span><div><b>Vector DB</b><small>Embeds every transaction in ChromaDB</small></div></li>
+        <li data-step="alerts"><span class="pip"></span><div><b>Alert engine</b><small>Finds overspending in rupees</small></div></li>
+      </ol>
+
+      <div id="ingest-result"></div>
+    </section>
+
+    <!-- ============================================================ DASHBOARD -->
+    <section class="view" id="view-dashboard" data-view="dashboard" hidden>
+      <div class="view-head">
+        <div><p class="eyebrow" id="dash-period"></p><h2>Dashboard</h2></div>
+        <button class="btn btn-ghost" data-goto="chat"><svg><use href="#i-chat"/></svg> Ask about it</button>
+      </div>
+      <div class="kpis" id="kpis"></div>
+      <div class="grid-2">
+        <article class="card chart-card reveal">
+          <header><h3>Income vs spending</h3><p class="muted">Per month, in ₹</p></header>
+          <div class="chart-box"><canvas id="c-monthly" role="img" aria-label="Monthly income and spending"></canvas></div>
+          <details class="as-table"><summary>View as table</summary><div id="t-monthly"></div></details>
+        </article>
+        <article class="card chart-card reveal">
+          <header><h3>Where it went</h3><p class="muted">Spending by category, whole period</p></header>
+          <div class="chart-box tall"><canvas id="c-categories" role="img" aria-label="Spending by category"></canvas></div>
+          <details class="as-table"><summary>View as table</summary><div id="t-categories"></div></details>
+        </article>
+        <article class="card chart-card reveal">
+          <header><h3>Weekly spending</h3><p class="muted">Debits per week, in ₹</p></header>
+          <div class="chart-box"><canvas id="c-weekly" role="img" aria-label="Weekly spending"></canvas></div>
+        </article>
+        <article class="card chart-card reveal">
+          <header><h3>Top payees</h3><p class="muted">Ranked by total paid</p></header>
+          <div class="chart-box tall"><canvas id="c-merchants" role="img" aria-label="Top payees"></canvas></div>
+        </article>
+      </div>
+      <div class="grid-3">
+        <article class="card reveal"><header><h3>50 / 30 / 20 check</h3><p class="muted">Share of income, vs target</p></header><div id="split"></div></article>
+        <article class="card reveal"><header><h3>Savings levers</h3><p class="muted">If every month matched your best month</p></header><div id="levers"></div></article>
+        <article class="card card-cocoa reveal"><header><h3>Top alerts</h3><p class="muted">From the rule engine</p></header><div id="top-alerts"></div></article>
+      </div>
+    </section>
+
+    <!-- ============================================================ CHAT -->
+    <section class="view view-chat" id="view-chat" data-view="chat" hidden>
+      <div class="chat-shell card">
+        <div class="chat-log" id="chat-log" aria-live="polite">
+          <div class="chat-empty" id="chat-empty">
+            <span class="orb-big" aria-hidden="true"><i></i><i></i><i></i></span>
+            <h2>Ask SpendSense</h2>
+            <p class="muted">Every answer shows which agent handled it, the tools it called and what it retrieved.</p>
+          </div>
+        </div>
+        <div class="suggestions" id="suggestions"></div>
+        <form class="composer" id="composer">
+          <textarea id="chat-input" rows="1" placeholder="e.g. How much did I spend on Swiggy in September?" aria-label="Your question" maxlength="2000"></textarea>
+          <button class="btn btn-primary send" type="submit" aria-label="Send"><svg><use href="#i-send"/></svg></button>
+        </form>
+      </div>
+    </section>
+
+    <!-- ============================================================ TRANSACTIONS -->
+    <section class="view" id="view-transactions" data-view="transactions" hidden>
+      <div class="view-head">
+        <div><p class="eyebrow">Edit a category and the agents learn from it</p><h2>Transactions</h2></div>
+        <a class="btn btn-ghost" id="export-csv" href="#" download><svg><use href="#i-download"/></svg> Export CSV</a>
+      </div>
+      <div class="toolbar card">
+        <label class="search"><svg><use href="#i-search"/></svg><input id="tx-q" type="search" placeholder="Search payee, description, note"></label>
+        <select id="tx-category" aria-label="Category"><option value="">All categories</option></select>
+        <select id="tx-month" aria-label="Month"><option value="">All months</option></select>
+        <select id="tx-type" aria-label="Type"><option value="">Debits & credits</option><option value="DEBIT">Debits</option><option value="CREDIT">Credits</option></select>
+      </div>
+      <p class="tx-summary" id="tx-summary"></p>
+      <div class="card table-card">
+        <table class="tx-table">
+          <thead><tr>
+            <th data-sort="date">Date</th><th data-sort="payee">Payee</th><th class="hide-md">Mode</th>
+            <th data-sort="amount" class="num">Amount</th><th data-sort="category">Category</th><th class="hide-sm">Labelled by</th>
+          </tr></thead>
+          <tbody id="tx-body"></tbody>
+        </table>
+      </div>
+      <div class="pager" id="tx-pager"></div>
+    </section>
+
+    <!-- ============================================================ INSIGHTS -->
+    <section class="view" id="view-insights" data-view="insights" hidden>
+      <div class="view-head">
+        <div><p class="eyebrow">Advisor Agent</p><h2>Insights</h2></div>
+        <button class="btn btn-ghost" id="insights-refresh"><svg><use href="#i-refresh"/></svg> Regenerate</button>
+      </div>
+      <article class="card card-cocoa summary reveal"><header><h3>In plain words</h3></header><div id="ins-summary" class="md"></div></article>
+      <div class="grid-2">
+        <article class="card reveal"><header><h3>Alerts</h3><p class="muted">Most important first</p></header><div id="ins-alerts" class="alert-list"></div></article>
+        <div class="stack">
+          <article class="card reveal"><header><h3>Subscriptions & recurring bills</h3></header><div id="ins-subs"></div></article>
+          <article class="card reveal"><header><h3>Month by month</h3></header><div id="ins-months"></div></article>
+          <button class="btn btn-primary wide" data-ask="Give me a savings plan for next month">Ask for a savings plan →</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============================================================ UNDER THE HOOD -->
+    <section class="view" id="view-hood" data-view="hood" hidden>
+      <div class="view-head"><div><p class="eyebrow">For the examiner</p><h2>Under the hood</h2></div></div>
+      <div class="criteria" id="criteria"></div>
+      <div class="grid-2">
+        <article class="card reveal">
+          <header><h3>Try a similarity search</h3><p class="muted">Straight against ChromaDB, no LLM</p></header>
+          <form class="search-form" id="vec-form">
+            <input id="vec-q" placeholder="e.g. how big should my emergency fund be" required maxlength="300">
+            <select id="vec-col" aria-label="Collection"><option value="finance_kb">Knowledge base</option><option value="transactions">Transactions</option></select>
+            <button class="btn btn-primary" type="submit">Search</button>
+          </form>
+          <div id="vec-results"></div>
+        </article>
+        <article class="card reveal">
+          <header><h3>Vector database</h3><p class="muted">ChromaDB collections</p></header>
+          <div id="collections"></div>
+          <h4 class="sub">Last categorisation</h4>
+          <div id="cat-trace" class="muted">Load a statement to see how each payee was labelled.</div>
+        </article>
+      </div>
+      <article class="card reveal">
+        <header><h3>Prompts</h3><p class="muted">Every system and user prompt, labelled by technique</p></header>
+        <div id="prompts" class="prompts"></div>
+      </article>
+    </section>
+  </main>
+
+  <div class="toasts" id="toasts" aria-live="assertive"></div>
+
+  <!-- icon sprite -->
+  <svg width="0" height="0" style="position:absolute" aria-hidden="true">
+    <defs>
+      <symbol id="i-upload" viewBox="0 0 24 24"><path d="M12 16V4m0 0-5 5m5-5 5 5M4 16v3a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-3" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+      <symbol id="i-chart" viewBox="0 0 24 24"><path d="M4 20V10m6 10V4m6 16v-7m4 7H3" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></symbol>
+      <symbol id="i-chat" viewBox="0 0 24 24"><path d="M4 5h16v11H9l-5 4z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></symbol>
+      <symbol id="i-list" viewBox="0 0 24 24"><path d="M9 6h11M9 12h11M9 18h11M4 6h.01M4 12h.01M4 18h.01" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></symbol>
+      <symbol id="i-bulb" viewBox="0 0 24 24"><path d="M9 18h6m-5 3h4M12 3a6 6 0 0 0-3.5 10.9c.6.5 1 1.2 1 2V16h5v-.1c0-.8.4-1.5 1-2A6 6 0 0 0 12 3z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></symbol>
+      <symbol id="i-gear" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3" fill="none" stroke="currentColor" stroke-width="2"/><path d="M12 2v3m0 14v3M2 12h3m14 0h3M4.9 4.9l2.1 2.1m10 10 2.1 2.1M4.9 19.1 7 17m10-10 2.1-2.1" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></symbol>
+      <symbol id="i-send" viewBox="0 0 24 24"><path d="M4 12h14m0 0-6-6m6 6-6 6" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+      <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7" fill="none" stroke="currentColor" stroke-width="2"/><path d="m20 20-4-4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></symbol>
+      <symbol id="i-download" viewBox="0 0 24 24"><path d="M12 4v12m0 0-5-5m5 5 5-5M4 20h16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+      <symbol id="i-refresh" viewBox="0 0 24 24"><path d="M20 11a8 8 0 1 0-2.3 5.7M20 4v7h-7" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+      <symbol id="i-alert" viewBox="0 0 24 24"><path d="M12 3 2 20h20L12 3zm0 6v5m0 3h.01" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/></symbol>
+      <symbol id="i-info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="2"/><path d="M12 11v6m0-10h.01" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></symbol>
+      <symbol id="i-check" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="2"/><path d="m8 12 3 3 5-6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+      <symbol id="i-flame" viewBox="0 0 24 24"><path d="M12 22a7 7 0 0 0 7-7c0-4-3-6-4-10-2 2-3 4-3 6-1-1-2-2-2-4-3 3-5 5-5 8a7 7 0 0 0 7 7z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></symbol>
+    </defs>
+  </svg>
+
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/marked@12.0.2/marked.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/dompurify@3.1.6/dist/purify.min.js"></script>
+  <script src="/static/app.js"></script>
+</body>
+</html>

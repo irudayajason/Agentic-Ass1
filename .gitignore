@@ -1,0 +1,18 @@
+# secrets: each user puts their own Groq key in .env (see .env.example)
+.env
+
+# local environment and generated data
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+chroma_db/
+.DS_Store
+
+# local editor / tool settings
+.vscode/
+.idea/
+
+# personal notes (kept locally, not part of the submission)
+PLAN.md
+VIVA_DEMO.md
